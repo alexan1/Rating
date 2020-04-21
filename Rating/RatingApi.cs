@@ -127,5 +127,111 @@ namespace Rating
 
             return (ActionResult)new OkObjectResult("Refreshed Demo database");
         }
+
+        [FunctionName("ProductReview")]
+        public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req, ILogger log)
+        {
+            int iPLU = 0;
+            int iRating = 0;
+            Double iAvg = 0;
+
+            if (Int32.TryParse(req.Query["PLU"], out iPLU))
+            {
+                iPLU = Int32.Parse(req.Query["PLU"]);
+            }
+            else
+            {
+                return new BadRequestObjectResult("Please pass a PLU parameter");
+            }
+
+            if (Int32.TryParse(req.Query["Rating"], out iRating))
+            {
+                iRating = Int32.Parse(req.Query["Rating"]);
+                if (iRating < 1 || iRating > 5)
+                {
+                    return new BadRequestObjectResult("Rating must be between 1 and 5");
+                }
+            }
+            else
+            {
+                return new BadRequestObjectResult("Please pass a Rating parameter");
+            }
+
+            //Create client connection to our MongoDB Atlas database
+            var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+
+            //Create a session object that is used when leveraging transactions
+            var session = client.StartSession();
+
+            //Create the collection object that represents the "inventory" collection
+            var collection = session.Client.GetDatabase("MongoOnlineGrocery").GetCollection<Product>("inventory");
+
+            //Begin transaction
+            session.StartTransaction();
+
+            //Append the rating to the PLU
+            var filter = new FilterDefinitionBuilder<Product>().Where(r => r.PLU == iPLU);
+
+            //For now to keep code short, our ratings are just an array of integers, in future we could easily add more metadata like user, date created, etc.
+            var MyRating = new ProductRating();
+            MyRating.Rating = iRating;
+
+            var update = Builders<Product>.Update.Push<ProductRating>(r => r.Ratings, MyRating);
+            var options = new UpdateOptions() { IsUpsert = true };
+
+            try
+            {
+                //Add the rating to our product
+                await collection.UpdateOneAsync(filter, update, options);
+
+                //Calculate the average rating
+                /* Equivalent Mongo Query Language statement:
+                 * 
+                 * db.inventory.aggregate( [
+                 * { $match: { "PLU":4011 }},
+                 * { $unwind: "$Ratings" },
+                 * { $group: { _id: "$_id", AvgRating: { $avg: "$Ratings.Rating" }}}
+                 * ])
+                 */
+
+                //Building out the Group pipeline stage
+                List<BsonElement> e = new List<BsonElement>();
+                e.Add(new BsonElement("_id", "$_id"));
+                e.Add(new BsonElement("AvgRating", new BsonDocument("$avg", "$Ratings.Rating")));
+
+
+                PipelineDefinition<Product, BsonDocument> Pipe = new BsonDocument[]
+                {
+                    new BsonDocument {{ "$match", new BsonDocument("PLU", iPLU)}},
+                    new BsonDocument {{ "$unwind", new BsonString("$Ratings")}},
+                    new BsonDocument {{ "$group", new BsonDocument(e)}}
+
+                };
+                var AverageRating = await collection.AggregateAsync<BsonDocument>(Pipe);
+
+                //We filtered it down to only average a specific PLU
+                var o = AverageRating.First();
+                iAvg = o["AvgRating"].AsDouble;
+
+                //Now that we calculated the average update the PLU with the latest average
+                var updateavg = Builders<Product>.Update.Set(r => r.AvgRating, iAvg);
+                await collection.UpdateOneAsync(filter, updateavg);
+
+                //Made it here without error? Let's commit the transaction
+                session.CommitTransaction();
+
+            }
+            catch (Exception e)
+            {
+                session.AbortTransaction();
+                return new BadRequestObjectResult("Error: " + e.Message);
+            }
+
+
+            return iRating > 0
+                ? (ActionResult)new OkObjectResult($"Added Rating of {iRating} to {iPLU}.  Average rating is {iAvg}")
+                : new BadRequestObjectResult("Please pass a PLU and Quantity as parameters");
+        }
     }
 }
+

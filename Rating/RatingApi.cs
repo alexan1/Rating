@@ -27,7 +27,13 @@ namespace Rating
             ILogger log)
         {
             log.LogInformation("creating new rating");
-            
+
+            //Create client connection to our MongoDB Atlas database
+            var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+            var database = client.GetDatabase("People");
+            var collection = database.GetCollection<Rating>("ratings");
+            //We could also just drop the collection
+
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic rate = JsonConvert.DeserializeObject<Rating>(requestBody);
             

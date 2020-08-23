@@ -10,8 +10,6 @@ using System.Collections.Generic;
 using System.Linq;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoDB.Bson.Serialization.Attributes;
-using System.Collections.Generic;
 using static Rating.Products;
 using System;
 
@@ -19,7 +17,7 @@ namespace Rating
 {
     public static class RatingApi
     {
-        static List<Rating> ratings = new List<Rating>();
+        static readonly List<Rating> ratings = new List<Rating>();
 
         [FunctionName("CreateRating")]
         public static async Task<IActionResult> CreateRating(
@@ -29,10 +27,20 @@ namespace Rating
             log.LogInformation("creating new rating");
 
             //Create client connection to our MongoDB Atlas database
-            var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
-            var database = client.GetDatabase("People");
-            var collection = database.GetCollection<Rating>("ratings");
-            //We could also just drop the collection
+            var client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+
+            //Create a session object that is used when leveraging transactions
+            var session = client.StartSession();
+
+            //Create the collection object that represents the "inventory" collection
+            var collection = session.Client.GetDatabase("People").GetCollection<Rating>("rating");
+
+            //Begin transaction
+            session.StartTransaction();
+
+            //var database = client.GetDatabase("People");
+            //var collection = database.GetCollection<Rating>("ratings");
+            
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             dynamic rate = JsonConvert.DeserializeObject<Rating>(requestBody);
@@ -62,7 +70,7 @@ namespace Rating
             return new OkObjectResult(todo);
         }
 
-        [FunctionName("UpdateRatin")]
+        [FunctionName("UpdateRating")]
         public static async Task<IActionResult> UpdateRating(
            [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating/{id}")]HttpRequest req, ILogger log, int id)
         {
@@ -164,7 +172,7 @@ namespace Rating
             }
 
             //Create client connection to our MongoDB Atlas database
-            var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+            var client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
 
             //Create a session object that is used when leveraging transactions
             var session = client.StartSession();

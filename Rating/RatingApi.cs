@@ -88,49 +88,47 @@ namespace Rating
             return new OkObjectResult(rate);
         }
 
-        [FunctionName("ResetDemo")]
+        [FunctionName("RatingDemo")]
         public static async Task<IActionResult> RunGet([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req, ILogger log)
         {
             try
             {
 
-                var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
-                var database = client.GetDatabase("MongoOnlineGrocery");
-                var collection = database.GetCollection<Product>("inventory");
+                var client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+                var database = client.GetDatabase("People");
+                var collection = database.GetCollection<Rating>("rating");
                 //We could also just drop the collection
                 await collection.DeleteManyAsync(new BsonDocument { });
                 await collection.Indexes.DropAllAsync();
 
                 //Create an index on the PLU, this will also enforce uniqueness
-                IndexKeysDefinition<Product> keys = "{ PLU: 1 }";
-                var indexModel = new CreateIndexModel<Product>(keys);
-                await collection.Indexes.CreateOneAsync(indexModel);
+                //IndexKeysDefinition<Product> keys = "{ PLU: 1 }";
+                //var indexModel = new CreateIndexModel<Product>(keys);
+                //await collection.Indexes.CreateOneAsync(indexModel);
 
                 //Create a default rating of 3 for new products
-                var MyRating = new ProductRating();
-                MyRating.Rating = 3;
-                var DefaultProductRating = new List<ProductRating>();
-                DefaultProductRating.Add(MyRating);
+                //var MyRating = new ProductRating();
+                //MyRating.Rating = 3;
+                //var DefaultProductRating = new List<ProductRating>();
+                //DefaultProductRating.Add(MyRating);
 
                 //Define some sample objects
-                var Bananas = new Product
+                var Putin = new Rating
                 {
-                    Id = new ObjectId(),
-                    PLU = 4011,
-                    Description = "Bananas",
-                    Ratings = DefaultProductRating
+                    PersonID = 7747,
+                    UserID = "me",
+                    Rate = 4
                 };
-                var Apples = new Product
+                var Trump = new Rating
                 {
-                    Id = new ObjectId(),
-                    PLU = 3283,
-                    Description = "Apples",
-                    Ratings = DefaultProductRating
+                    PersonID = 22686,
+                    UserID = "me",
+                    Rate = 7
                 };
 
                 //MongoDB makes it easy to go from object to database with no ORM layer
-                await collection.InsertOneAsync(Bananas);
-                await collection.InsertOneAsync(Apples);
+                await collection.InsertOneAsync(Putin);
+                await collection.InsertOneAsync(Trump);
 
             }
             catch (Exception e)
@@ -141,6 +139,60 @@ namespace Rating
 
             return (ActionResult)new OkObjectResult("Refreshed Demo database");
         }
+
+        //[FunctionName("ResetDemo")]
+        //public static async Task<IActionResult> RunGet([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req, ILogger log)
+        //{
+        //    try
+        //    {
+
+        //        var client = new MongoClient(System.Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+        //        var database = client.GetDatabase("MongoOnlineGrocery");
+        //        var collection = database.GetCollection<Product>("inventory");
+        //        //We could also just drop the collection
+        //        await collection.DeleteManyAsync(new BsonDocument { });
+        //        await collection.Indexes.DropAllAsync();
+
+        //        //Create an index on the PLU, this will also enforce uniqueness
+        //        IndexKeysDefinition<Product> keys = "{ PLU: 1 }";
+        //        var indexModel = new CreateIndexModel<Product>(keys);
+        //        await collection.Indexes.CreateOneAsync(indexModel);
+
+        //        //Create a default rating of 3 for new products
+        //        var MyRating = new ProductRating();
+        //        MyRating.Rating = 3;
+        //        var DefaultProductRating = new List<ProductRating>();
+        //        DefaultProductRating.Add(MyRating);
+
+        //        //Define some sample objects
+        //        var Bananas = new Product
+        //        {
+        //            Id = new ObjectId(),
+        //            PLU = 4011,
+        //            Description = "Bananas",
+        //            Ratings = DefaultProductRating
+        //        };
+        //        var Apples = new Product
+        //        {
+        //            Id = new ObjectId(),
+        //            PLU = 3283,
+        //            Description = "Apples",
+        //            Ratings = DefaultProductRating
+        //        };
+
+        //        //MongoDB makes it easy to go from object to database with no ORM layer
+        //        await collection.InsertOneAsync(Bananas);
+        //        await collection.InsertOneAsync(Apples);
+
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        return new BadRequestObjectResult("Error refreshing demo - " + e.Message);
+
+        //    }
+
+        //    return (ActionResult)new OkObjectResult("Refreshed Demo database");
+        //}
 
         [FunctionName("ProductReview")]
         public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req, ILogger log)

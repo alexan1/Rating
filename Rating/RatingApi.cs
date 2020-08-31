@@ -55,7 +55,13 @@ namespace Rating
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "rating")]HttpRequest req, ILogger log)
         {
             log.LogInformation("Getting all ratings");
-            return new OkObjectResult(ratings);
+            var client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+            var session = client.StartSession();
+            var collection = session.Client.GetDatabase("People").GetCollection<Rating>("rating");
+            session.StartTransaction();
+
+
+            return new OkObjectResult(collection);
         }
 
         [FunctionName("GeRatingById")]

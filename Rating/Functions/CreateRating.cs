@@ -19,7 +19,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _albums;
+        private readonly IMongoCollection<rating> _ratings;
         
         public CreateRating(
             MongoClient mongoClient,
@@ -30,21 +30,21 @@ namespace Rating
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(_config[Settings.DATABASE_NAME]);
-            _albums = database.GetCollection<Rating>(_config[Settings.COLLECTION_NAME]);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(CreateRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "CreateAlbum")] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "CreateRating")] HttpRequest req)
         {
             IActionResult returnValue = null;
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var input = JsonConvert.DeserializeObject<Rating>(requestBody);
+            var input = JsonConvert.DeserializeObject<rating>(requestBody);
 
-            var rating = new Rating
+            var rating = new rating
             {
                 PersonID = input.PersonID,
                 Rate = input.Rate,
@@ -54,7 +54,7 @@ namespace Rating
 
             try
             {
-                _albums.InsertOne(rating);
+                _ratings.InsertOne(rating);
                 returnValue = new OkObjectResult(rating);
             }
             catch (Exception ex)

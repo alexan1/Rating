@@ -17,7 +17,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<rating> _ratings;
 
         public DeleteRating(
             MongoClient mongoClient,
@@ -28,8 +28,8 @@ namespace Rating
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(_config[Settings.DATABASE_NAME]);
-            _ratings = database.GetCollection<Rating>(_config[Settings.COLLECTION_NAME]);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(DeleteRating))]
@@ -45,7 +45,7 @@ namespace Rating
 
                 if (ratingToDelete == null)
                 {
-                    _logger.LogInformation($"Album with id: {id} does not exist. Delete failed");
+                    _logger.LogInformation($"Rating with id: {id} does not exist. Delete failed");
                     returnValue = new StatusCodeResult(StatusCodes.Status404NotFound);
                 }
 

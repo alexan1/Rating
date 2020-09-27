@@ -17,7 +17,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _albums;
+        private readonly IMongoCollection<rating> _ratings;
 
         public GetRating(
             MongoClient mongoClient,
@@ -28,8 +28,8 @@ namespace Rating
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(_config[Settings.DATABASE_NAME]);
-            _albums = database.GetCollection<Rating>(_config[Settings.COLLECTION_NAME]);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(GetRating))]
@@ -41,7 +41,7 @@ namespace Rating
 
             try
             {
-                var result =_albums.Find(rating => rating.PersonID == id).FirstOrDefault();
+                var result =_ratings.Find(rating => rating.PersonID == id).FirstOrDefault();
 
                 if (result == null)
                 {

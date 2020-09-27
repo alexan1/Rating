@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Rating
 {
-    public class Rating
+    public class rating
     {
         public int PersonID { get; set; }
         public string UserID { get; set; }

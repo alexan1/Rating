@@ -17,7 +17,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<rating> _ratings;
 
         public GetRatings(
             MongoClient mongoClient,
@@ -29,7 +29,7 @@ namespace Rating
             _config = config;
 
             var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(GetRatings))]

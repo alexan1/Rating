@@ -19,7 +19,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<rating> _ratings;
 
         public UpdateRating(
             MongoClient mongoClient,
@@ -30,8 +30,8 @@ namespace Rating
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(_config[Settings.DATABASE_NAME]);
-            _ratings = database.GetCollection<Rating>(_config[Settings.COLLECTION_NAME]);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(UpdateRating))]
@@ -43,7 +43,7 @@ namespace Rating
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var updatedResult = JsonConvert.DeserializeObject<Rating>(requestBody);
+            var updatedResult = JsonConvert.DeserializeObject<rating>(requestBody);
 
             updatedResult.PersonID = id;
 
@@ -62,7 +62,7 @@ namespace Rating
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Could not update Album with id: {id}. Exception thrown: {ex.Message}");
+                _logger.LogError($"Could not update Rating with id: {id}. Exception thrown: {ex.Message}");
                 returnValue = new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
 

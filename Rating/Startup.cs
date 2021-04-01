@@ -22,7 +22,7 @@ namespace MongoMusic.API.Helpers
                 loggingBuilder.AddFilter(level => true);
             });
 
-            var config = (IConfiguration)builder.Services.First(d => d.ServiceType == typeof(IConfiguration)).ImplementationInstance;
+            //var config = (IConfiguration)builder.Services.First(d => d.ServiceType == typeof(IConfiguration)).ImplementationInstance;
 
             builder.Services.AddSingleton((s) =>
             {                

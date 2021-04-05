@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
 using MongoMusic.API.Helpers;
+using MongoDB.Bson;
 
 namespace Rating
 {
@@ -17,7 +18,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<rating> _ratings;
+        private readonly IMongoCollection<Rating> _ratings;
 
         public GetRatings(
             MongoClient mongoClient,
@@ -29,7 +30,7 @@ namespace Rating
             _config = config;
 
             var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
+            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(GetRatings))]
@@ -40,6 +41,8 @@ namespace Rating
 
             try
             {
+                var num = _ratings.CountDocuments(new BsonDocument());
+                   
                 var result = _ratings.Find(rating => true).ToList();
 
                 if (result == null)

@@ -19,7 +19,7 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<rating> _ratings;
+        private readonly IMongoCollection<Rating> _ratings;
         
         public CreateRating(
             MongoClient mongoClient,
@@ -31,7 +31,7 @@ namespace Rating
             _config = config;
 
             var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<rating>(Settings.COLLECTION_NAME);
+            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(CreateRating))]
@@ -42,9 +42,9 @@ namespace Rating
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var input = JsonConvert.DeserializeObject<rating>(requestBody);
+            var input = JsonConvert.DeserializeObject<Rating>(requestBody);
 
-            var rating = new rating
+            var rating = new Rating
             {
                 PersonID = input.PersonID,
                 Rate = input.Rate,

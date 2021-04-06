@@ -338,3 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/Rating/Properties/ServiceDependencies/PeopleRating - Web Deploy/profile.arm.json
+/Rating/Properties/ServiceDependencies/PeopleRating - Zip Deploy/profile.arm.json

@@ -42,15 +42,7 @@ namespace Rating
 
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var input = JsonConvert.DeserializeObject<Rating>(requestBody);
-
-            var rating = new Rating
-            {
-                PersonID = input.PersonID,
-                Rate = input.Rate,
-                UserID = input.UserID
-               
-            };
+            var rating = JsonConvert.DeserializeObject<Rating>(requestBody);            
 
             try
             {

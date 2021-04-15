@@ -34,7 +34,7 @@ namespace Rating
 
         [FunctionName(nameof(DeleteRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "Rating/{id}")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteRating/{id}")] HttpRequest req,
             int id)
         {
             IActionResult returnValue = null;

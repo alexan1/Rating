@@ -12,7 +12,7 @@ using MongoDB.Bson;
 
 namespace Rating
 {
-    public class GetRatings
+    public class GetAllRatings
     {
         private readonly MongoClient _mongoClient;
         private readonly ILogger _logger;
@@ -20,9 +20,9 @@ namespace Rating
 
         private readonly IMongoCollection<Rating> _ratings;
 
-        public GetRatings(
+        public GetAllRatings(
             MongoClient mongoClient,
-            ILogger<GetRatings> logger,
+            ILogger<GetAllRatings> logger,
             IConfiguration config)
         {
             _mongoClient = mongoClient;
@@ -33,9 +33,9 @@ namespace Rating
             _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
         }
 
-        [FunctionName(nameof(GetRatings))]
+        [FunctionName(nameof(GetAllRatings))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "ratings")] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Ratings")] HttpRequest req)
         {
             IActionResult returnValue = null;
 

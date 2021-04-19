@@ -36,7 +36,7 @@ namespace Rating
 
         [FunctionName(nameof(CreateRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "CreateRating")] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "rating")] HttpRequest req)
         {
             IActionResult returnValue = null;
 

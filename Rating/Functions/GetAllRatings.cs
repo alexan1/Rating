@@ -1,16 +1,15 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using MongoDB.Driver;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class GetAllRatings
     {
@@ -25,11 +24,10 @@ namespace Rating
             ILogger<GetAllRatings> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
             _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
         }
 
@@ -41,9 +39,9 @@ namespace Rating
 
             try
             {
-                var num = _ratings.CountDocuments(new BsonDocument());
+                //var num = await _ratings.CountDocumentsAsync(new BsonDocument());
                    
-                var result = _ratings.Find(rating => true).ToList();
+                var result = await _ratings.Find(rating => true).ToListAsync();
 
                 if (result == null)
                 {

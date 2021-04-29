@@ -1,17 +1,16 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using Newtonsoft.Json;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class UpdateRating
     {
@@ -22,15 +21,14 @@ namespace Rating
         private readonly IMongoCollection<Rating> _ratings;
 
         public UpdateRating(
-            MongoClient mongoClient,
+            IMongoClient mongoClient,
             ILogger<UpdateRating> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
             _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
         }
 
@@ -41,15 +39,15 @@ namespace Rating
         {
             IActionResult returnValue = null;
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
             var updatedResult = JsonConvert.DeserializeObject<Rating>(requestBody);
 
-            updatedResult.PersonID = id;
+            updatedResult.PersonId = id;
 
             try
             {
-                var replacedItem = _ratings.ReplaceOne(rating => rating.PersonID == id, updatedResult);
+                var replacedItem = await _ratings.ReplaceOneAsync(rating => rating.PersonId == id, updatedResult);
 
                 if (replacedItem == null)
                 {

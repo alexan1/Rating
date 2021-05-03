@@ -17,7 +17,7 @@ namespace Rating.Functions
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<Model.Rating> _ratings;
 
         public GetAllRatings(
             MongoClient mongoClient,
@@ -28,7 +28,7 @@ namespace Rating.Functions
             _config = config;
 
             var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(GetAllRatings))]

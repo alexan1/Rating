@@ -1,7 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-
-namespace Rating.Model
+﻿namespace Rating.Model
 {
     public class ViewRating
     {

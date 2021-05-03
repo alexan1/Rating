@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Rating.Model;
 
 namespace Rating.Functions
 {
@@ -50,7 +53,8 @@ namespace Rating.Functions
                 }
                 else
                 {
-                    returnValue = new OkObjectResult(result);
+                    var viewresult = result.GroupBy(x => x.PersonId).Select(p => new ViewRating{PersonId = p.Key, AverageRate = p.Average(z => z.Rate)});
+                    returnValue = new OkObjectResult(viewresult);
                 }
             }
             catch (Exception ex)

@@ -1,17 +1,16 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using Newtonsoft.Json;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class UpdateRating
     {
@@ -19,37 +18,36 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<Model.Rating> _ratings;
 
         public UpdateRating(
-            MongoClient mongoClient,
+            IMongoClient mongoClient,
             ILogger<UpdateRating> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(UpdateRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "UpdateRating/{id}")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating/{id}")] HttpRequest req,
             int id)
         {
             IActionResult returnValue = null;
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var updatedResult = JsonConvert.DeserializeObject<Rating>(requestBody);
+            var updatedResult = JsonConvert.DeserializeObject<Model.Rating>(requestBody);
 
-            updatedResult.PersonID = id;
+            updatedResult.PersonId = id;
 
             try
             {
-                var replacedItem = _ratings.ReplaceOne(rating => rating.PersonID == id, updatedResult);
+                var replacedItem = await _ratings.ReplaceOneAsync(rating => rating.PersonId == id, updatedResult);
 
                 if (replacedItem == null)
                 {

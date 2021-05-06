@@ -1,17 +1,13 @@
-﻿using Microsoft.Azure.WebJobs;
+﻿using System;
+using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
-using MongoMusic.API.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using Rating;
 
 [assembly: WebJobsStartup(typeof(Startup))]
-namespace MongoMusic.API.Helpers
+namespace Rating
 {
     public class Startup : IWebJobsStartup
     {
@@ -26,7 +22,7 @@ namespace MongoMusic.API.Helpers
 
             builder.Services.AddSingleton((s) =>
             {                
-                MongoClient client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
+                var client = new MongoClient(Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString"));
 
                 return client;
             });

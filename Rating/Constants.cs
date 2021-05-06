@@ -1,9 +1,4 @@
-﻿using MongoDB.Driver.Core.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace MongoMusic.API.Helpers
+﻿namespace Rating
 {
     public class Settings
     {        

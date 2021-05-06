@@ -1,16 +1,18 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
+using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using MongoDB.Driver;
+using Rating.Model;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class GetAllRatings
     {
@@ -18,32 +20,31 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<Model.Rating> _ratings;
 
         public GetAllRatings(
             MongoClient mongoClient,
             ILogger<GetAllRatings> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(GetAllRatings))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "Ratings")] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "ratings")] HttpRequest req)
         {
             IActionResult returnValue = null;
 
             try
             {
-                var num = _ratings.CountDocuments(new BsonDocument());
+                //var num = await _ratings.CountDocumentsAsync(new BsonDocument());
                    
-                var result = _ratings.Find(rating => true).ToList();
+                var result = await _ratings.Find(rating => true).ToListAsync();
 
                 if (result == null)
                 {
@@ -52,7 +53,8 @@ namespace Rating
                 }
                 else
                 {
-                    returnValue = new OkObjectResult(result);
+                    var viewresult = result.GroupBy(x => x.PersonId).Select(p => new ViewRating{PersonId = p.Key, AverageRate = p.Average(z => z.Rate)});
+                    returnValue = new OkObjectResult(viewresult);
                 }
             }
             catch (Exception ex)

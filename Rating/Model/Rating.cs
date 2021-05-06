@@ -1,10 +1,7 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
-namespace Rating
+namespace Rating.Model
 {
     public class Rating
     {
@@ -13,9 +10,9 @@ namespace Rating
         public string Id { get; set; }
 
         [BsonElement("PersonID")]
-        public int PersonID { get; set; }
+        public int PersonId { get; set; }
         [BsonElement("UserID")]
-        public string UserID { get; set; }
+        public string UserId { get; set; }
         [BsonElement("Rate")]
         public int Rate { get; set; }
     }

@@ -1,17 +1,16 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using MongoDB.Driver;
 using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
+using Microsoft.Extensions.Logging;
+using MongoDB.Driver;
+using Newtonsoft.Json;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class CreateRating
     {
@@ -19,34 +18,32 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<Model.Rating> _ratings;
         
         public CreateRating(
             MongoClient mongoClient,
             ILogger<CreateRating> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(CreateRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "CreateRating")] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "rating")] HttpRequest req)
         {
-            IActionResult returnValue = null;
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+            var rating = JsonConvert.DeserializeObject<Model.Rating>(requestBody);
 
-            var rating = JsonConvert.DeserializeObject<Rating>(requestBody);            
-
+            IActionResult returnValue;
             try
             {
-                _ratings.InsertOne(rating);
+                await _ratings.InsertOneAsync(rating);
                 returnValue = new OkObjectResult(rating);
             }
             catch (Exception ex)
@@ -54,7 +51,6 @@ namespace Rating
                 _logger.LogError($"Exception thrown: {ex.Message}");
                 returnValue = new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
-            
 
             return returnValue;
         }

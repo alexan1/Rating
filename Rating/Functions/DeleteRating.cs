@@ -1,15 +1,14 @@
 using System;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
-using Microsoft.Extensions.Configuration;
-using MongoMusic.API.Helpers;
 
-namespace Rating
+namespace Rating.Functions
 {
     public class DeleteRating
     {
@@ -17,31 +16,30 @@ namespace Rating
         private readonly ILogger _logger;
         private readonly IConfiguration _config;
 
-        private readonly IMongoCollection<Rating> _ratings;
+        private readonly IMongoCollection<Model.Rating> _ratings;
 
         public DeleteRating(
-            MongoClient mongoClient,
+            IMongoClient mongoClient,
             ILogger<DeleteRating> logger,
             IConfiguration config)
         {
-            _mongoClient = mongoClient;
             _logger = logger;
             _config = config;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Rating>(Settings.COLLECTION_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [FunctionName(nameof(DeleteRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "DeleteRating/{id}")] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "rating/{id}")] HttpRequest req,
             int id)
         {
             IActionResult returnValue = null;
 
             try
             {
-                var ratingToDelete = _ratings.DeleteOne(rating => rating.PersonID == id);
+                var ratingToDelete = await _ratings.DeleteOneAsync(rating => rating.PersonId == id);
 
                 if (ratingToDelete == null)
                 {

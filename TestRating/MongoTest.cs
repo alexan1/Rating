@@ -1,7 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using MongoMusic.API.Helpers;
 using System;
 
 namespace TestRating
@@ -20,7 +19,7 @@ namespace TestRating
         public void TestMethod1()
         {
 
-            var result = true;
+            const bool result = true;
             var settings = Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString");
             var settings1 = "mongodb+srv://alexan1:<passwod>.c0dsb.azure.mongodb.net?retryWrites=true&w=majority";
             var client = new MongoClient(settings1);

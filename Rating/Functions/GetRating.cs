@@ -27,8 +27,9 @@ namespace Rating.Functions
         {
             _logger = logger;
             _config = config;
+            _mongoClient = mongoClient;
 
-            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
             _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 

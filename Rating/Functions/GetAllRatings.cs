@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -8,7 +7,6 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using Rating.Model;
 
@@ -29,8 +27,9 @@ namespace Rating.Functions
         {
             _logger = logger;
             _config = config;
+            _mongoClient = mongoClient;
 
-            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
             _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 

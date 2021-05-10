@@ -38,7 +38,6 @@ namespace Rating.Functions
             int id)
         {
             IActionResult returnValue;
-            //var viewresult = new ViewRating();
 
             try
             {

@@ -12,7 +12,7 @@ using Newtonsoft.Json;
 
 namespace Rating.Functions
 {
-    public class UpdateRating
+    public class UpsertRating
     {
         private readonly MongoClient _mongoClient;
         private readonly ILogger _logger;
@@ -20,9 +20,9 @@ namespace Rating.Functions
 
         private readonly IMongoCollection<Model.Rating> _ratings;
 
-        public UpdateRating(
-            IMongoClient mongoClient,
-            ILogger<UpdateRating> logger,
+        public UpsertRating(
+            MongoClient mongoClient,
+            ILogger<UpsertRating> logger,
             IConfiguration config)
         {
             _logger = logger;
@@ -32,39 +32,42 @@ namespace Rating.Functions
             _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
-        [FunctionName(nameof(UpdateRating))]
+        [FunctionName(nameof(UpsertRating))]
         public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating/{id}")] HttpRequest req,
-            int id)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating")] HttpRequest req)
         {
             IActionResult returnValue = null;
-
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-            var updatedResult = JsonConvert.DeserializeObject<Model.Rating>(requestBody);
-
-            updatedResult.PersonId = id;
+            var rating = JsonConvert.DeserializeObject<Model.Rating>(requestBody);
 
             try
             {
-                var replacedItem = await _ratings.ReplaceOneAsync(rating => rating.PersonId == id, updatedResult);
+                var exrating = await _ratings.Find(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId).FirstOrDefaultAsync();
 
-                if (replacedItem == null)
+                if (exrating == null)
                 {
-                    returnValue = new NotFoundResult();
+                    await _ratings.InsertOneAsync(rating);
+                    returnValue = new OkObjectResult(rating);
                 }
                 else
                 {
-                    returnValue = new OkObjectResult(updatedResult);
-                }              
+                    rating.Id = exrating.Id;
+                    await _ratings.ReplaceOneAsync(r => r.Id == exrating.Id, rating);
+                    returnValue = new OkObjectResult(rating);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Could not update Rating with id: {id}. Exception thrown: {ex.Message}");
+                _logger.LogError($"Could not update Rating Person: {rating.PersonId} by User: {rating.UserId}. Exception thrown: {ex.Message}");
                 returnValue = new StatusCodeResult(StatusCodes.Status500InternalServerError);
             }
+            finally
+            {
 
-            return returnValue;
+            }
+
+            return new OkObjectResult(returnValue);
         }
     }
 }

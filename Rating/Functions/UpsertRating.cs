@@ -50,6 +50,11 @@ namespace Rating.Functions
                     await _ratings.InsertOneAsync(rating);
                     returnValue = new OkObjectResult(rating);
                 }
+                else if (rating.Rate == 0)
+                {
+                    await _ratings.DeleteOneAsync(r => r.Id == exrating.Id);
+                    returnValue = new OkObjectResult(null);
+                }
                 else
                 {
                     rating.Id = exrating.Id;

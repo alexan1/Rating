@@ -46,14 +46,18 @@ namespace Rating.Functions
 
                 if (result == null || result.Count < 1)
                 {
-                    _logger.LogWarning("That item doesn't exist!");
-                    returnValue = new NotFoundResult();
+                    var viewresult = new ViewRating
+                    {
+                        PersonId = id,
+                        AverageRate = 0.0
+                    };
+                    returnValue = new OkObjectResult(viewresult);
                 }
                 else
                 {
                     var viewresult = new ViewRating
                     {
-                        PersonId = result.FirstOrDefault().PersonId,
+                        PersonId = id,
                         AverageRate = result.Select(x => x.Rate).Average()
                     };
                     returnValue = new OkObjectResult(viewresult);

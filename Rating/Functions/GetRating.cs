@@ -1,11 +1,8 @@
 using System;
-using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Rating.Model;
@@ -14,62 +11,36 @@ namespace Rating.Functions
 {
     public class GetRating
     {
-        private readonly MongoClient _mongoClient;
-        private readonly ILogger _logger;
-        private readonly IConfiguration _config;
-
         private readonly IMongoCollection<Model.Rating> _ratings;
+        private readonly ILogger<GetRating> _logger;
 
         public GetRating(
             MongoClient mongoClient,
-            ILogger<GetRating> logger,
-            IConfiguration config)
+            ILogger<GetRating> logger)
         {
             _logger = logger;
-            _config = config;
-            _mongoClient = mongoClient;
 
-            var database = _mongoClient.GetDatabase(Settings.DATABASE_NAME);
+            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
             _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
-        [FunctionName(nameof(GetRating))]
-        public async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "rating/{id}")] HttpRequest req,
+        [Function(nameof(GetRating))]
+        public async Task<HttpResponseData> Run(
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "rating/{id}")] HttpRequestData req,
             int id)
         {
-            IActionResult returnValue;
-
             try
             {
-                var result  = await _ratings.Find(rating => rating.PersonId == id).ToListAsync();
-
-                if (result == null || result.Count < 1)
-                {
-                    var viewresult = new ViewRating
-                    {
-                        PersonId = id,
-                        AverageRate = 0.0
-                    };
-                    returnValue = new OkObjectResult(viewresult);
-                }
-                else
-                {
-                    var viewresult = new ViewRating
-                    {
-                        PersonId = id,
-                        AverageRate = result.Select(x => x.Rate).Average()
-                    };
-                    returnValue = new OkObjectResult(viewresult);
-                }               
+                var result = await _ratings.Find(rating => rating.PersonId == id).ToListAsync();
+                var response = req.CreateResponse(HttpStatusCode.OK);
+                await response.WriteAsJsonAsync(RatingSummaries.CreateForPerson(id, result));
+                return response;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Couldn't find Rating with id: {id}. Exception thrown: {ex.Message}");
-                returnValue = new StatusCodeResult(StatusCodes.Status500InternalServerError);
+                return req.CreateResponse(HttpStatusCode.InternalServerError);
             }
-
-            return returnValue;
         }
     }
 }

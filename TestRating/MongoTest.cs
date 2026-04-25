@@ -1,34 +1,54 @@
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using MongoDB.Bson;
-using MongoDB.Driver;
-using System;
+using Rating.Model;
+using RatingModel = Rating.Model.Rating;
 
 namespace TestRating
 {
     [TestClass]
     public class MongoTest
     {
-        //private readonly MongoClient _mongoClient;
+        [TestMethod]
+        public void CreateForPersonReturnsZeroWhenThereAreNoRatings()
+        {
+            var result = RatingSummaries.CreateForPerson(7, new List<RatingModel>());
 
-        //public MongoTest(MongoClient mongoClient)
-        //{
-        //    _mongoClient = mongoClient;
-        //}
+            Assert.AreEqual(7, result.PersonId);
+            Assert.AreEqual(0.0, result.AverageRate);
+        }
 
         [TestMethod]
-        public void TestMethod1()
+        public void CreateForPersonReturnsAverageForMatchingRatings()
         {
+            var ratings = new[]
+            {
+                new RatingModel { PersonId = 7, Rate = 8 },
+                new RatingModel { PersonId = 7, Rate = 4 }
+            };
 
-            const bool result = true;
-            var settings = Environment.GetEnvironmentVariable("MongoDBAtlasConnectionString");
-            var settings1 = "mongodb+srv://alexan1:<passwod>.c0dsb.azure.mongodb.net?retryWrites=true&w=majority";
-            var client = new MongoClient(settings1);
-            var database = client.GetDatabase("People");
-            database.RunCommand((Command<BsonDocument>)"{ping:1}");
+            var result = RatingSummaries.CreateForPerson(7, ratings);
 
-            Assert.IsTrue(result);
-            //Assert.AreEqual(settings, settings1);
+            Assert.AreEqual(6.0, result.AverageRate);
+        }
 
+        [TestMethod]
+        public void CreateAllGroupsRatingsByPerson()
+        {
+            var ratings = new[]
+            {
+                new RatingModel { PersonId = 1, Rate = 10 },
+                new RatingModel { PersonId = 1, Rate = 6 },
+                new RatingModel { PersonId = 2, Rate = 5 }
+            };
+
+            var result = RatingSummaries.CreateAll(ratings).OrderBy(x => x.PersonId).ToList();
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual(1, result[0].PersonId);
+            Assert.AreEqual(8.0, result[0].AverageRate);
+            Assert.AreEqual(2, result[1].PersonId);
+            Assert.AreEqual(5.0, result[1].AverageRate);
         }
     }
 }

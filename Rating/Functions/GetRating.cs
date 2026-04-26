@@ -38,7 +38,7 @@ namespace Rating.Functions
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Couldn't find Rating with id: {id}. Exception thrown: {ex.Message}");
+                _logger.LogError(ex, "Could not retrieve Rating for PersonId: {PersonId}.", id);
                 return req.CreateResponse(HttpStatusCode.InternalServerError);
             }
         }

@@ -7,7 +7,10 @@ namespace Rating.Model
     {
         public static ViewRating CreateForPerson(int personId, IEnumerable<Rating> ratings)
         {
-            var rateValues = ratings.Select(x => x.Rate).ToList();
+            var rateValues = ratings
+                .Where(x => x.PersonId == personId)
+                .Select(x => x.Rate)
+                .ToList();
 
             return new ViewRating
             {

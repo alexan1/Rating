@@ -37,7 +37,7 @@ namespace Rating.Functions
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Exception thrown: {ex.Message}");
+                _logger.LogError(ex, "Could not retrieve all ratings.");
                 return req.CreateResponse(HttpStatusCode.InternalServerError);
             }
         }

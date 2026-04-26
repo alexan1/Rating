@@ -7,7 +7,7 @@ using RatingModel = Rating.Model.Rating;
 namespace TestRating
 {
     [TestClass]
-    public class MongoTest
+    public class RatingSummariesTests
     {
         [TestMethod]
         public void CreateForPersonReturnsZeroWhenThereAreNoRatings()

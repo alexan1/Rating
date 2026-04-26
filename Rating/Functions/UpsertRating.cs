@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -14,7 +15,7 @@ namespace Rating.Functions
         private readonly ILogger<UpsertRating> _logger;
 
         public UpsertRating(
-            MongoClient mongoClient,
+            IMongoClient mongoClient,
             ILogger<UpsertRating> logger)
         {
             _logger = logger;
@@ -36,7 +37,9 @@ namespace Rating.Functions
                     return req.CreateResponse(HttpStatusCode.BadRequest);
                 }
 
-                var exrating = await _ratings.Find(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId).FirstOrDefaultAsync();
+                var filter = Builders<Model.Rating>.Filter.Where(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId);
+                using var cursor = await _ratings.FindAsync(filter);
+                var exrating = (await cursor.ToListAsync()).FirstOrDefault();
 
                 if (exrating == null)
                 {

@@ -15,7 +15,7 @@ var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureServices(services =>
     {
-        services.AddSingleton(_ => new MongoClient(mongoConnectionString));
+        services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoConnectionString));
     })
     .Build();
 

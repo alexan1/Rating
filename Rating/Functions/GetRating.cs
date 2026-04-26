@@ -15,7 +15,7 @@ namespace Rating.Functions
         private readonly ILogger<GetRating> _logger;
 
         public GetRating(
-            MongoClient mongoClient,
+            IMongoClient mongoClient,
             ILogger<GetRating> logger)
         {
             _logger = logger;
@@ -31,7 +31,9 @@ namespace Rating.Functions
         {
             try
             {
-                var result = await _ratings.Find(rating => rating.PersonId == id).ToListAsync();
+                var filter = Builders<Model.Rating>.Filter.Eq(rating => rating.PersonId, id);
+                using var cursor = await _ratings.FindAsync(filter);
+                var result = await cursor.ToListAsync();
                 var response = req.CreateResponse(HttpStatusCode.OK);
                 await response.WriteAsJsonAsync(RatingSummaries.CreateForPerson(id, result));
                 return response;

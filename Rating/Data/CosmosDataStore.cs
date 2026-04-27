@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Azure.Cosmos;
 
@@ -21,8 +20,12 @@ namespace Rating.Data
 
         public async Task<Model.Rating> FindRatingAsync(int personId, string userId)
         {
-            var query = $"SELECT * FROM c WHERE c.PersonId = {personId} AND c.UserId = '{EscapeString(userId)}'";
-            var iterator = _container.GetItemQueryIterator<Model.Rating>(query);
+            var queryDefinition = new QueryDefinition(
+                "SELECT * FROM c WHERE c.PersonId = @personId AND c.UserId = @userId")
+                .WithParameter("@personId", personId)
+                .WithParameter("@userId", userId);
+            
+            var iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
             
             await foreach (var item in iterator)
             {
@@ -34,8 +37,11 @@ namespace Rating.Data
 
         public async Task<List<Model.Rating>> FindRatingsByPersonIdAsync(int personId)
         {
-            var query = $"SELECT * FROM c WHERE c.PersonId = {personId}";
-            var iterator = _container.GetItemQueryIterator<Model.Rating>(query);
+            var queryDefinition = new QueryDefinition(
+                "SELECT * FROM c WHERE c.PersonId = @personId")
+                .WithParameter("@personId", personId);
+            
+            var iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
             var results = new List<Model.Rating>();
             
             await foreach (var item in iterator)
@@ -63,22 +69,17 @@ namespace Rating.Data
         public async Task CreateRatingAsync(Model.Rating rating)
         {
             rating.Id = Guid.NewGuid().ToString();
-            await _container.CreateItemAsync(rating, new PartitionKey(rating.PersonId.ToString()));
+            await _container.CreateItemAsync(rating, new PartitionKey(rating.PersonId));
         }
 
         public async Task UpdateRatingAsync(Model.Rating rating)
         {
-            await _container.ReplaceItemAsync(rating, rating.Id, new PartitionKey(rating.PersonId.ToString()));
+            await _container.ReplaceItemAsync(rating, rating.Id, new PartitionKey(rating.PersonId));
         }
 
         public async Task DeleteRatingAsync(string id, int personId)
         {
-            await _container.DeleteItemAsync<Model.Rating>(id, new PartitionKey(personId.ToString()));
-        }
-
-        private static string EscapeString(string value)
-        {
-            return value?.Replace("'", "''") ?? "";
+            await _container.DeleteItemAsync<Model.Rating>(id, new PartitionKey(personId));
         }
     }
 }

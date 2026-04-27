@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using Rating.Model;
 
 namespace Rating
@@ -10,7 +8,7 @@ namespace Rating
         /// Validates a Rating object according to business rules.
         /// Returns a tuple of (isValid, errorMessage).
         /// </summary>
-        public static (bool isValid, string errorMessage) Validate(Rating rating)
+        public static (bool isValid, string errorMessage) Validate(Model.Rating rating)
         {
             if (rating == null)
             {

@@ -114,7 +114,7 @@ namespace TestRating
         {
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(null);
+            var request = CreateRequest(null, "PUT");
 
             var response = await function.Run(request);
 
@@ -128,7 +128,7 @@ namespace TestRating
             var store = CreateDataStoreContext(Array.Empty<RatingModel>());
 
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(newRating);
+            var request = CreateRequest(newRating, "PUT");
 
             var response = await function.Run(request);
             var body = await ReadBodyAsync<RatingModel>(response);
@@ -148,7 +148,7 @@ namespace TestRating
             var store = CreateDataStoreContext(new[] { existing });
 
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(update);
+            var request = CreateRequest(update, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -165,7 +165,7 @@ namespace TestRating
             var store = CreateDataStoreContext(new[] { existing });
 
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(update);
+            var request = CreateRequest(update, "PUT");
 
             var response = await function.Run(request);
             var body = await ReadBodyAsync<RatingModel>(response);
@@ -186,7 +186,7 @@ namespace TestRating
                 .ThrowsAsync(new InvalidOperationException("boom"));
 
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(newRating);
+            var request = CreateRequest(newRating, "PUT");
 
             var response = await function.Run(request);
 
@@ -228,7 +228,7 @@ namespace TestRating
         {
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(null);
+            var request = CreateRequest(null, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -244,7 +244,7 @@ namespace TestRating
             var invalidRating = new RatingModel { PersonId = 0, UserId = "alex", Rate = 7 };
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(invalidRating);
+            var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -260,7 +260,7 @@ namespace TestRating
             var invalidRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 15 };
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(invalidRating);
+            var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -276,7 +276,7 @@ namespace TestRating
             var invalidRating = new RatingModel { PersonId = 9, UserId = "", Rate = 7 };
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(invalidRating);
+            var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -292,7 +292,7 @@ namespace TestRating
             var invalidRating = new RatingModel { PersonId = 9, UserId = "   ", Rate = 7 };
             var store = CreateDataStoreContext();
             var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
-            var request = CreateRequest(invalidRating);
+            var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
             var bodyText = await ReadBodyTextAsync(response);
@@ -302,17 +302,32 @@ namespace TestRating
             Assert.AreEqual("UserId cannot be empty or whitespace", json.GetProperty("error").GetString());
         }
 
-        private static HttpRequestData CreateRequest(object body)
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenJsonIsMalformed()
+        {
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(null, "PUT", "{");
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("Request body contains invalid JSON.", json.GetProperty("error").GetString());
+        }
+
+        private static HttpRequestData CreateRequest(object body, string method = "GET", string rawBody = null)
         {
             var context = CreateFunctionContext();
             var response = CreateResponse(context);
             var requestMock = new Mock<HttpRequestData>(context);
-            requestMock.SetupGet(x => x.Body).Returns(CreateBodyStream(body));
+            requestMock.SetupGet(x => x.Body).Returns(CreateBodyStream(body, rawBody));
             requestMock.SetupGet(x => x.Headers).Returns(new HttpHeadersCollection());
             requestMock.SetupGet(x => x.Cookies).Returns(Array.Empty<IHttpCookie>());
             requestMock.SetupGet(x => x.Url).Returns(new Uri("https://localhost/api/rating"));
             requestMock.SetupGet(x => x.Identities).Returns(Array.Empty<ClaimsIdentity>());
-            requestMock.SetupGet(x => x.Method).Returns("GET");
+            requestMock.SetupGet(x => x.Method).Returns(method);
             requestMock.Setup(x => x.CreateResponse()).Returns(response);
 
             return requestMock.Object;
@@ -343,9 +358,9 @@ namespace TestRating
             return contextMock.Object;
         }
 
-        private static MemoryStream CreateBodyStream(object body)
+        private static MemoryStream CreateBodyStream(object body, string rawBody = null)
         {
-            var json = JsonSerializer.Serialize(body);
+            var json = rawBody ?? JsonSerializer.Serialize(body);
             return new MemoryStream(Encoding.UTF8.GetBytes(json));
         }
 

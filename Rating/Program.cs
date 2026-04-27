@@ -1,20 +1,34 @@
 using System;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
-using Azure.Cosmos;
 using Rating;
 using Rating.Data;
 
 var mongoConnectionString = Environment.GetEnvironmentVariable(Settings.MONGO_CONNECTION_STRING);
 var cosmosConnectionString = Environment.GetEnvironmentVariable(Settings.COSMOS_CONNECTION_STRING);
+var dataStoreType = Environment.GetEnvironmentVariable(Settings.DATA_STORE_TYPE);
 
-// Default to MongoDB, but allow switching via environment variable
-var useCosmosDb = !string.IsNullOrWhiteSpace(cosmosConnectionString) && 
-                  string.Equals(Environment.GetEnvironmentVariable(Settings.DATA_STORE_TYPE), Settings.COSMOS_DATA_STORE, StringComparison.OrdinalIgnoreCase);
+var useCosmosDb = string.Equals(dataStoreType, Settings.COSMOS_DATA_STORE, StringComparison.OrdinalIgnoreCase);
 
-if (!useCosmosDb && string.IsNullOrWhiteSpace(mongoConnectionString))
+if (!string.IsNullOrWhiteSpace(dataStoreType) &&
+    !useCosmosDb &&
+    !string.Equals(dataStoreType, Settings.MONGO_DATA_STORE, StringComparison.OrdinalIgnoreCase))
+{
+    throw new InvalidOperationException(
+        $"Unsupported {Settings.DATA_STORE_TYPE} value '{dataStoreType}'. Expected '{Settings.MONGO_DATA_STORE}' or '{Settings.COSMOS_DATA_STORE}'.");
+}
+
+if (useCosmosDb)
+{
+    if (string.IsNullOrWhiteSpace(cosmosConnectionString))
+    {
+        throw new InvalidOperationException($"Missing required environment variable: {Settings.COSMOS_CONNECTION_STRING}");
+    }
+}
+else if (string.IsNullOrWhiteSpace(mongoConnectionString))
 {
     throw new InvalidOperationException($"Missing required environment variable: {Settings.MONGO_CONNECTION_STRING}");
 }

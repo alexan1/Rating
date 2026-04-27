@@ -31,6 +31,15 @@ namespace Rating.Functions
         {
             try
             {
+                // Validate PersonId
+                if (id <= 0)
+                {
+                    _logger.LogWarning("Invalid PersonId requested: {PersonId}", id);
+                    var badRequestResponse = req.CreateResponse(HttpStatusCode.BadRequest);
+                    await badRequestResponse.WriteAsJsonAsync(new { error = "PersonId must be greater than 0" });
+                    return badRequestResponse;
+                }
+
                 var filter = Builders<Model.Rating>.Filter.Eq(rating => rating.PersonId, id);
                 using var cursor = await _ratings.FindAsync(filter);
                 var result = await cursor.ToListAsync();

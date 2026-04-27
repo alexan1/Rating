@@ -236,6 +236,115 @@ namespace TestRating
             Assert.AreEqual(HttpStatusCode.InternalServerError, response.StatusCode);
         }
 
+        [TestMethod]
+        public async Task GetRatingReturnsBadRequestWhenPersonIdIsZero()
+        {
+            var mongo = CreateMongoContext();
+            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var request = CreateRequest(null);
+
+            var response = await function.Run(request, 0);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("PersonId must be greater than 0", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task GetRatingReturnsBadRequestWhenPersonIdIsNegative()
+        {
+            var mongo = CreateMongoContext();
+            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var request = CreateRequest(null);
+
+            var response = await function.Run(request, -5);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("PersonId must be greater than 0", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenBodyIsNullWithErrorPayload()
+        {
+            var mongo = CreateMongoContext();
+            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(null);
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("Request body is required.", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenPersonIdIsZero()
+        {
+            var invalidRating = new RatingModel { PersonId = 0, UserId = "alex", Rate = 7 };
+            var mongo = CreateMongoContext();
+            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(invalidRating);
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("PersonId must be greater than 0", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenRateIsInvalid()
+        {
+            var invalidRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 15 };
+            var mongo = CreateMongoContext();
+            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(invalidRating);
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("Rate must be 0 (to delete) or between 1 and 10", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenUserIdIsEmpty()
+        {
+            var invalidRating = new RatingModel { PersonId = 9, UserId = "", Rate = 7 };
+            var mongo = CreateMongoContext();
+            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(invalidRating);
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("UserId cannot be empty or whitespace", json.GetProperty("error").GetString());
+        }
+
+        [TestMethod]
+        public async Task UpsertRatingReturnsBadRequestWhenUserIdIsWhitespace()
+        {
+            var invalidRating = new RatingModel { PersonId = 9, UserId = "   ", Rate = 7 };
+            var mongo = CreateMongoContext();
+            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var request = CreateRequest(invalidRating);
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.AreEqual("UserId cannot be empty or whitespace", json.GetProperty("error").GetString());
+        }
+
         private static MongoContext CreateMongoContext(IEnumerable<RatingModel> queryResults = null)
         {
             var collectionMock = new Mock<IMongoCollection<RatingModel>>();

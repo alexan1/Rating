@@ -4,24 +4,23 @@ using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
+using Rating;
+using Rating.Data;
 using Rating.Model;
 
 namespace Rating.Functions
 {
     public class GetAllRatings
     {
-        private readonly IMongoCollection<Model.Rating> _ratings;
+        private readonly IDataStore _dataStore;
         private readonly ILogger<GetAllRatings> _logger;
 
         public GetAllRatings(
-            IMongoClient mongoClient,
+            IDataStore dataStore,
             ILogger<GetAllRatings> logger)
         {
+            _dataStore = dataStore;
             _logger = logger;
-
-            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [Function(nameof(GetAllRatings))]
@@ -30,8 +29,7 @@ namespace Rating.Functions
         {
             try
             {
-                using var cursor = await _ratings.FindAsync(Builders<Model.Rating>.Filter.Empty);
-                var result = await cursor.ToListAsync();
+                var result = await _dataStore.GetAllRatingsAsync();
                 var response = req.CreateResponse(HttpStatusCode.OK);
                 await response.WriteAsJsonAsync(RatingSummaries.CreateAll(result));
                 return response;

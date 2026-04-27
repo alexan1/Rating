@@ -41,11 +41,9 @@ namespace Rating.Data
 
         public async Task CreateRatingAsync(Model.Rating rating)
         {
-            if (string.IsNullOrWhiteSpace(rating.Id))
-            {
-                rating.Id = ObjectId.GenerateNewId().ToString();
-            }
-
+            rating.Id = ObjectId.TryParse(rating.Id, out var objectId)
+                ? objectId.ToString()
+                : ObjectId.GenerateNewId().ToString();
             await _collection.InsertOneAsync(rating);
         }
 

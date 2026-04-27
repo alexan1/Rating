@@ -8,11 +8,11 @@ using Rating;
 using Rating.Data;
 
 var mongoConnectionString = Environment.GetEnvironmentVariable(Settings.MONGO_CONNECTION_STRING);
-var cosmosConnectionString = Environment.GetEnvironmentVariable("CosmosDBConnectionString");
+var cosmosConnectionString = Environment.GetEnvironmentVariable(Settings.COSMOS_CONNECTION_STRING);
 
 // Default to MongoDB, but allow switching via environment variable
 var useCosmosDb = !string.IsNullOrWhiteSpace(cosmosConnectionString) && 
-                  Environment.GetEnvironmentVariable("DATA_STORE_TYPE")?.ToLower() == "cosmos";
+                  string.Equals(Environment.GetEnvironmentVariable(Settings.DATA_STORE_TYPE), Settings.COSMOS_DATA_STORE, StringComparison.OrdinalIgnoreCase);
 
 if (!useCosmosDb && string.IsNullOrWhiteSpace(mongoConnectionString))
 {

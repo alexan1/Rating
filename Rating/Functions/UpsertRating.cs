@@ -1,28 +1,25 @@
 using System;
 using System.Net;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
-using MongoDB.Driver;
 using Rating;
+using Rating.Data;
 
 namespace Rating.Functions
 {
     public class UpsertRating
     {
-        private readonly IMongoCollection<Model.Rating> _ratings;
+        private readonly IDataStore _dataStore;
         private readonly ILogger<UpsertRating> _logger;
 
         public UpsertRating(
-            IMongoClient mongoClient,
+            IDataStore dataStore,
             ILogger<UpsertRating> logger)
         {
+            _dataStore = dataStore;
             _logger = logger;
-
-            var database = mongoClient.GetDatabase(Settings.DATABASE_NAME);
-            _ratings = database.GetCollection<Model.Rating>(Settings.COLLECTION_NAME);
         }
 
         [Function(nameof(UpsertRating))]
@@ -51,13 +48,11 @@ namespace Rating.Functions
                     return response;
                 }
 
-                var filter = Builders<Model.Rating>.Filter.Where(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId);
-                using var cursor = await _ratings.FindAsync(filter);
-                var exrating = (await cursor.ToListAsync()).FirstOrDefault();
+                var existing = await _dataStore.FindRatingAsync(rating.PersonId, rating.UserId);
 
-                if (exrating == null)
+                if (existing == null)
                 {
-                    await _ratings.InsertOneAsync(rating);
+                    await _dataStore.CreateRatingAsync(rating);
                     var response = req.CreateResponse(HttpStatusCode.OK);
                     await response.WriteAsJsonAsync(rating);
                     return response;
@@ -65,14 +60,14 @@ namespace Rating.Functions
 
                 if (rating.Rate == 0)
                 {
-                    await _ratings.DeleteOneAsync(r => r.Id == exrating.Id);
+                    await _dataStore.DeleteRatingAsync(existing.Id, existing.PersonId);
                     var response = req.CreateResponse(HttpStatusCode.OK);
                     await response.WriteAsJsonAsync<object>(null);
                     return response;
                 }
 
-                rating.Id = exrating.Id;
-                await _ratings.ReplaceOneAsync(r => r.Id == exrating.Id, rating);
+                rating.Id = existing.Id;
+                await _dataStore.UpdateRatingAsync(rating);
 
                 var updateResponse = req.CreateResponse(HttpStatusCode.OK);
                 await updateResponse.WriteAsJsonAsync(rating);

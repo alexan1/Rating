@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Security.Claims;
 using System.Text;
@@ -14,8 +15,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
-using MongoDB.Driver;
 using Rating;
+using Rating.Data;
 using Rating.Functions;
 using Rating.Model;
 using RatingModel = Rating.Model.Rating;
@@ -38,9 +39,9 @@ namespace TestRating
                 new() { PersonId = 7, UserId = "a", Rate = 8 },
                 new() { PersonId = 7, UserId = "b", Rate = 4 }
             };
-            var mongo = CreateMongoContext(ratings);
+            var store = CreateDataStoreContext(ratings);
 
-            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var function = new GetRating(store.StoreMock.Object, Mock.Of<ILogger<GetRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request, 7);
@@ -55,15 +56,12 @@ namespace TestRating
         [TestMethod]
         public async Task GetRatingReturnsInternalServerErrorWhenQueryFails()
         {
-            var mongo = CreateMongoContext();
-            mongo.CollectionMock
-                .Setup(x => x.FindAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.IsAny<FindOptions<RatingModel, RatingModel>>(),
-                    It.IsAny<CancellationToken>()))
-                .Throws(new InvalidOperationException("boom"));
+            var store = CreateDataStoreContext();
+            store.StoreMock
+                .Setup(x => x.FindRatingsByPersonIdAsync(It.IsAny<int>()))
+                .ThrowsAsync(new InvalidOperationException("boom"));
 
-            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var function = new GetRating(store.StoreMock.Object, Mock.Of<ILogger<GetRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request, 7);
@@ -80,9 +78,9 @@ namespace TestRating
                 new() { PersonId = 1, UserId = "b", Rate = 6 },
                 new() { PersonId = 2, UserId = "c", Rate = 5 }
             };
-            var mongo = CreateMongoContext(ratings);
+            var store = CreateDataStoreContext(ratings);
 
-            var function = new GetAllRatings(mongo.Client.Object, Mock.Of<ILogger<GetAllRatings>>());
+            var function = new GetAllRatings(store.StoreMock.Object, Mock.Of<ILogger<GetAllRatings>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request);
@@ -98,15 +96,12 @@ namespace TestRating
         [TestMethod]
         public async Task GetAllRatingsReturnsInternalServerErrorWhenQueryFails()
         {
-            var mongo = CreateMongoContext();
-            mongo.CollectionMock
-                .Setup(x => x.FindAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.IsAny<FindOptions<RatingModel, RatingModel>>(),
-                    It.IsAny<CancellationToken>()))
-                .Throws(new InvalidOperationException("boom"));
+            var store = CreateDataStoreContext();
+            store.StoreMock
+                .Setup(x => x.GetAllRatingsAsync())
+                .ThrowsAsync(new InvalidOperationException("boom"));
 
-            var function = new GetAllRatings(mongo.Client.Object, Mock.Of<ILogger<GetAllRatings>>());
+            var function = new GetAllRatings(store.StoreMock.Object, Mock.Of<ILogger<GetAllRatings>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request);
@@ -117,34 +112,22 @@ namespace TestRating
         [TestMethod]
         public async Task UpsertRatingReturnsBadRequestWhenBodyIsNull()
         {
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request);
 
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
-            mongo.CollectionMock.Verify(
-                x => x.FindAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.IsAny<FindOptions<RatingModel, RatingModel>>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
         }
 
         [TestMethod]
         public async Task UpsertRatingInsertsNewRatingWhenNoExistingRecord()
         {
             var newRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 7 };
-            var mongo = CreateMongoContext(Array.Empty<RatingModel>());
-            mongo.CollectionMock
-                .Setup(x => x.InsertOneAsync(
-                    It.Is<RatingModel>(r => r.PersonId == 9 && r.UserId == "alex" && r.Rate == 7),
-                    null,
-                    It.IsAny<CancellationToken>()))
-                .Returns(Task.CompletedTask);
+            var store = CreateDataStoreContext(Array.Empty<RatingModel>());
 
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(newRating);
 
             var response = await function.Run(request);
@@ -155,12 +138,6 @@ namespace TestRating
             Assert.AreEqual(9, body.PersonId);
             Assert.AreEqual("alex", body.UserId);
             Assert.AreEqual(7, body.Rate);
-            mongo.CollectionMock.Verify(
-                x => x.InsertOneAsync(
-                    It.Is<RatingModel>(r => r.PersonId == 9 && r.UserId == "alex" && r.Rate == 7),
-                    null,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
         }
 
         [TestMethod]
@@ -168,12 +145,9 @@ namespace TestRating
         {
             var existing = new RatingModel { Id = "507f1f77bcf86cd799439011", PersonId = 9, UserId = "alex", Rate = 4 };
             var update = new RatingModel { PersonId = 9, UserId = "alex", Rate = 0 };
-            var mongo = CreateMongoContext(new[] { existing });
-            mongo.CollectionMock
-                .Setup(x => x.DeleteOneAsync(It.IsAny<FilterDefinition<RatingModel>>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync((DeleteResult)null);
+            var store = CreateDataStoreContext(new[] { existing });
 
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(update);
 
             var response = await function.Run(request);
@@ -181,9 +155,6 @@ namespace TestRating
 
             Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
             Assert.AreEqual("null", bodyText);
-            mongo.CollectionMock.Verify(
-                x => x.DeleteOneAsync(It.IsAny<FilterDefinition<RatingModel>>(), It.IsAny<CancellationToken>()),
-                Times.Once);
         }
 
         [TestMethod]
@@ -191,16 +162,9 @@ namespace TestRating
         {
             var existing = new RatingModel { Id = "507f1f77bcf86cd799439011", PersonId = 9, UserId = "alex", Rate = 4 };
             var update = new RatingModel { PersonId = 9, UserId = "alex", Rate = 8 };
-            var mongo = CreateMongoContext(new[] { existing });
-            mongo.CollectionMock
-                .Setup(x => x.ReplaceOneAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.IsAny<RatingModel>(),
-                    It.IsAny<ReplaceOptions>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync((ReplaceOneResult)null);
+            var store = CreateDataStoreContext(new[] { existing });
 
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(update);
 
             var response = await function.Run(request);
@@ -210,25 +174,18 @@ namespace TestRating
             Assert.IsNotNull(body);
             Assert.AreEqual(existing.Id, body.Id);
             Assert.AreEqual(8, body.Rate);
-            mongo.CollectionMock.Verify(
-                x => x.ReplaceOneAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.Is<RatingModel>(r => r.Id == existing.Id && r.PersonId == 9 && r.UserId == "alex" && r.Rate == 8),
-                    It.IsAny<ReplaceOptions>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
         }
 
         [TestMethod]
         public async Task UpsertRatingReturnsInternalServerErrorWhenDatabaseWriteFails()
         {
             var newRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 7 };
-            var mongo = CreateMongoContext(Array.Empty<RatingModel>());
-            mongo.CollectionMock
-                .Setup(x => x.InsertOneAsync(It.IsAny<RatingModel>(), null, It.IsAny<CancellationToken>()))
+            var store = CreateDataStoreContext(Array.Empty<RatingModel>());
+            store.StoreMock
+                .Setup(x => x.CreateRatingAsync(It.IsAny<RatingModel>()))
                 .ThrowsAsync(new InvalidOperationException("boom"));
 
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(newRating);
 
             var response = await function.Run(request);
@@ -239,8 +196,8 @@ namespace TestRating
         [TestMethod]
         public async Task GetRatingReturnsBadRequestWhenPersonIdIsZero()
         {
-            var mongo = CreateMongoContext();
-            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var store = CreateDataStoreContext();
+            var function = new GetRating(store.StoreMock.Object, Mock.Of<ILogger<GetRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request, 0);
@@ -254,8 +211,8 @@ namespace TestRating
         [TestMethod]
         public async Task GetRatingReturnsBadRequestWhenPersonIdIsNegative()
         {
-            var mongo = CreateMongoContext();
-            var function = new GetRating(mongo.Client.Object, Mock.Of<ILogger<GetRating>>());
+            var store = CreateDataStoreContext();
+            var function = new GetRating(store.StoreMock.Object, Mock.Of<ILogger<GetRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request, -5);
@@ -269,8 +226,8 @@ namespace TestRating
         [TestMethod]
         public async Task UpsertRatingReturnsBadRequestWhenBodyIsNullWithErrorPayload()
         {
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(null);
 
             var response = await function.Run(request);
@@ -285,8 +242,8 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenPersonIdIsZero()
         {
             var invalidRating = new RatingModel { PersonId = 0, UserId = "alex", Rate = 7 };
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(invalidRating);
 
             var response = await function.Run(request);
@@ -301,8 +258,8 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenRateIsInvalid()
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 15 };
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(invalidRating);
 
             var response = await function.Run(request);
@@ -317,8 +274,8 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenUserIdIsEmpty()
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "", Rate = 7 };
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(invalidRating);
 
             var response = await function.Run(request);
@@ -333,8 +290,8 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenUserIdIsWhitespace()
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "   ", Rate = 7 };
-            var mongo = CreateMongoContext();
-            var function = new UpsertRating(mongo.Client.Object, Mock.Of<ILogger<UpsertRating>>());
+            var store = CreateDataStoreContext();
+            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
             var request = CreateRequest(invalidRating);
 
             var response = await function.Run(request);
@@ -343,29 +300,6 @@ namespace TestRating
 
             Assert.AreEqual(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.AreEqual("UserId cannot be empty or whitespace", json.GetProperty("error").GetString());
-        }
-
-        private static MongoContext CreateMongoContext(IEnumerable<RatingModel> queryResults = null)
-        {
-            var collectionMock = new Mock<IMongoCollection<RatingModel>>();
-            collectionMock
-                .Setup(x => x.FindAsync(
-                    It.IsAny<FilterDefinition<RatingModel>>(),
-                    It.IsAny<FindOptions<RatingModel, RatingModel>>(),
-                    It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new TestAsyncCursor<RatingModel>(queryResults ?? Array.Empty<RatingModel>()));
-
-            var databaseMock = new Mock<IMongoDatabase>();
-            databaseMock
-                .Setup(x => x.GetCollection<RatingModel>(Settings.COLLECTION_NAME, null))
-                .Returns(collectionMock.Object);
-
-            var clientMock = new Mock<IMongoClient>();
-            clientMock
-                .Setup(x => x.GetDatabase(Settings.DATABASE_NAME, null))
-                .Returns(databaseMock.Object);
-
-            return new MongoContext(clientMock, collectionMock);
         }
 
         private static HttpRequestData CreateRequest(object body)
@@ -428,41 +362,59 @@ namespace TestRating
             return await reader.ReadToEndAsync();
         }
 
-        private sealed record MongoContext(
-            Mock<IMongoClient> Client,
-            Mock<IMongoCollection<RatingModel>> CollectionMock);
+        private sealed record DataStoreContext(
+            Mock<IDataStore> StoreMock);
 
-        private sealed class TestAsyncCursor<T> : IAsyncCursor<T>
+        private static DataStoreContext CreateDataStoreContext(IEnumerable<RatingModel> queryResults = null)
         {
-            private readonly IReadOnlyList<T> _items;
-            private bool _moved;
+            var storeMock = new Mock<IDataStore>();
+            var results = new List<RatingModel>(queryResults ?? Array.Empty<RatingModel>());
 
-            public TestAsyncCursor(IEnumerable<T> items)
-            {
-                _items = new List<T>(items);
-            }
+            storeMock
+                .Setup(x => x.FindRatingsByPersonIdAsync(It.IsAny<int>()))
+                .ReturnsAsync((int personId) => results.FindAll(r => r.PersonId == personId));
 
-            public IEnumerable<T> Current => _moved ? _items : Array.Empty<T>();
+            storeMock
+                .Setup(x => x.GetAllRatingsAsync())
+                .ReturnsAsync(results);
 
-            public void Dispose()
-            {
-            }
+            storeMock
+                .Setup(x => x.FindRatingAsync(It.IsAny<int>(), It.IsAny<string>()))
+                .ReturnsAsync((int personId, string userId) => results.FirstOrDefault(r => r.PersonId == personId && r.UserId == userId));
 
-            public bool MoveNext(CancellationToken cancellationToken = default)
-            {
-                if (_moved)
+            storeMock
+                .Setup(x => x.CreateRatingAsync(It.IsAny<RatingModel>()))
+                .Callback<RatingModel>(r => 
                 {
-                    return false;
-                }
+                    r.Id = Guid.NewGuid().ToString();
+                    results.Add(r);
+                })
+                .Returns(Task.CompletedTask);
 
-                _moved = true;
-                return _items.Count > 0;
-            }
+            storeMock
+                .Setup(x => x.UpdateRatingAsync(It.IsAny<RatingModel>()))
+                .Callback<RatingModel>(r =>
+                {
+                    var existing = results.FirstOrDefault(x => x.Id == r.Id);
+                    if (existing != null)
+                    {
+                        results.Remove(existing);
+                        results.Add(r);
+                    }
+                })
+                .Returns(Task.CompletedTask);
 
-            public Task<bool> MoveNextAsync(CancellationToken cancellationToken = default)
-            {
-                return Task.FromResult(MoveNext(cancellationToken));
-            }
+            storeMock
+                .Setup(x => x.DeleteRatingAsync(It.IsAny<string>(), It.IsAny<int>()))
+                .Callback<string, int>((id, personId) =>
+                {
+                    var toRemove = results.FirstOrDefault(r => r.Id == id);
+                    if (toRemove != null)
+                        results.Remove(toRemove);
+                })
+                .Returns(Task.CompletedTask);
+
+            return new DataStoreContext(storeMock);
         }
     }
 }

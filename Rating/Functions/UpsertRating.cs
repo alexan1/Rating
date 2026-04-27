@@ -6,6 +6,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
+using Rating;
 
 namespace Rating.Functions
 {
@@ -34,7 +35,20 @@ namespace Rating.Functions
             {
                 if (rating == null)
                 {
-                    return req.CreateResponse(HttpStatusCode.BadRequest);
+                    _logger.LogWarning("Invalid rating submission: request body is null.");
+                    var response = req.CreateResponse(HttpStatusCode.BadRequest);
+                    await response.WriteAsJsonAsync(new { error = "Request body is required." });
+                    return response;
+                }
+
+                // Validate input
+                var (isValid, errorMessage) = RatingValidator.Validate(rating);
+                if (!isValid)
+                {
+                    _logger.LogWarning("Invalid rating submission: {ErrorMessage}", errorMessage);
+                    var response = req.CreateResponse(HttpStatusCode.BadRequest);
+                    await response.WriteAsJsonAsync(new { error = errorMessage });
+                    return response;
                 }
 
                 var filter = Builders<Model.Rating>.Filter.Where(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId);

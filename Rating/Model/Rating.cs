@@ -7,7 +7,6 @@ namespace Rating.Model
     public class Rating
     {
         [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
         [JsonPropertyName("id")]
         public string Id { get; set; }
 

@@ -25,7 +25,13 @@ namespace Rating.Data
                 .WithParameter("@personId", personId)
                 .WithParameter("@userId", userId);
 
-            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
+            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(
+                queryDefinition,
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(personId),
+                    MaxItemCount = 1
+                });
 
             while (iterator.HasMoreResults)
             {
@@ -45,7 +51,12 @@ namespace Rating.Data
                 "SELECT * FROM c WHERE c.PersonId = @personId")
                 .WithParameter("@personId", personId);
 
-            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
+            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(
+                queryDefinition,
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(personId)
+                });
             var results = new List<Model.Rating>();
 
             while (iterator.HasMoreResults)

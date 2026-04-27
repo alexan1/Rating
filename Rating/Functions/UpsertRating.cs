@@ -37,6 +37,16 @@ namespace Rating.Functions
                     return req.CreateResponse(HttpStatusCode.BadRequest);
                 }
 
+                // Validate input
+                var (isValid, errorMessage) = RatingValidator.Validate(rating);
+                if (!isValid)
+                {
+                    _logger.LogWarning("Invalid rating submission: {ErrorMessage}", errorMessage);
+                    var response = req.CreateResponse(HttpStatusCode.BadRequest);
+                    await response.WriteAsJsonAsync(new { error = errorMessage });
+                    return response;
+                }
+
                 var filter = Builders<Model.Rating>.Filter.Where(ex => ex.PersonId == rating.PersonId && ex.UserId == rating.UserId);
                 using var cursor = await _ratings.FindAsync(filter);
                 var exrating = (await cursor.ToListAsync()).FirstOrDefault();

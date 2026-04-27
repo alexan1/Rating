@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace Rating.Data
@@ -40,7 +41,11 @@ namespace Rating.Data
 
         public async Task CreateRatingAsync(Model.Rating rating)
         {
-            rating.Id = Guid.NewGuid().ToString();
+            if (string.IsNullOrWhiteSpace(rating.Id))
+            {
+                rating.Id = ObjectId.GenerateNewId().ToString();
+            }
+
             await _collection.InsertOneAsync(rating);
         }
 

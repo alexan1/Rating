@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
@@ -26,7 +27,19 @@ namespace Rating.Functions
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating")] HttpRequestData req)
         {
-            var rating = await req.ReadFromJsonAsync<Model.Rating>();
+            Model.Rating rating;
+
+            try
+            {
+                rating = await req.ReadFromJsonAsync<Model.Rating>();
+            }
+            catch (Exception ex) when (IsInvalidRequestPayload(ex))
+            {
+                _logger.LogWarning(ex, "Invalid rating submission: malformed JSON payload.");
+                var response = req.CreateResponse(HttpStatusCode.BadRequest);
+                await response.WriteAsJsonAsync(new { error = "Request body contains invalid JSON." });
+                return response;
+            }
 
             try
             {
@@ -78,6 +91,21 @@ namespace Rating.Functions
                 _logger.LogError(ex, "Could not update Rating Person: {PersonId} by User: {UserId}.", rating?.PersonId, rating?.UserId);
                 return req.CreateResponse(HttpStatusCode.InternalServerError);
             }
+        }
+
+        private static bool IsInvalidRequestPayload(Exception exception)
+        {
+            while (exception != null)
+            {
+                if (exception is JsonException || exception is FormatException || exception is InvalidOperationException || exception is NotSupportedException)
+                {
+                    return true;
+                }
+
+                exception = exception.InnerException;
+            }
+
+            return false;
         }
     }
 }

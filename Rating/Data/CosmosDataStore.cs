@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Azure.Cosmos;
+using Microsoft.Azure.Cosmos;
 
 namespace Rating.Data
 {
@@ -10,7 +10,7 @@ namespace Rating.Data
     /// </summary>
     public class CosmosDataStore : IDataStore
     {
-        private readonly CosmosContainer _container;
+        private readonly Container _container;
 
         public CosmosDataStore(CosmosClient cosmosClient)
         {
@@ -24,14 +24,18 @@ namespace Rating.Data
                 "SELECT * FROM c WHERE c.PersonId = @personId AND c.UserId = @userId")
                 .WithParameter("@personId", personId)
                 .WithParameter("@userId", userId);
-            
-            var iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
-            
-            await foreach (var item in iterator)
+
+            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
+
+            while (iterator.HasMoreResults)
             {
-                return item;
+                FeedResponse<Model.Rating> response = await iterator.ReadNextAsync();
+                foreach (var item in response)
+                {
+                    return item;
+                }
             }
-            
+
             return null;
         }
 
@@ -40,29 +44,31 @@ namespace Rating.Data
             var queryDefinition = new QueryDefinition(
                 "SELECT * FROM c WHERE c.PersonId = @personId")
                 .WithParameter("@personId", personId);
-            
-            var iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
+
+            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(queryDefinition);
             var results = new List<Model.Rating>();
-            
-            await foreach (var item in iterator)
+
+            while (iterator.HasMoreResults)
             {
-                results.Add(item);
+                FeedResponse<Model.Rating> response = await iterator.ReadNextAsync();
+                results.AddRange(response);
             }
-            
+
             return results;
         }
 
         public async Task<List<Model.Rating>> GetAllRatingsAsync()
         {
             var query = "SELECT * FROM c";
-            var iterator = _container.GetItemQueryIterator<Model.Rating>(query);
+            using FeedIterator<Model.Rating> iterator = _container.GetItemQueryIterator<Model.Rating>(query);
             var results = new List<Model.Rating>();
-            
-            await foreach (var item in iterator)
+
+            while (iterator.HasMoreResults)
             {
-                results.Add(item);
+                FeedResponse<Model.Rating> response = await iterator.ReadNextAsync();
+                results.AddRange(response);
             }
-            
+
             return results;
         }
 

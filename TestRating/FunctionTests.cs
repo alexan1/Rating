@@ -16,6 +16,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Rating;
+using Rating.Auth;
 using Rating.Data;
 using Rating.Functions;
 using Rating.Model;
@@ -113,7 +114,7 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenBodyIsNull()
         {
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(null, "PUT");
 
             var response = await function.Run(request);
@@ -127,7 +128,7 @@ namespace TestRating
             var newRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 7 };
             var store = CreateDataStoreContext(Array.Empty<RatingModel>());
 
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(newRating, "PUT");
 
             var response = await function.Run(request);
@@ -147,7 +148,7 @@ namespace TestRating
             var update = new RatingModel { PersonId = 9, UserId = "alex", Rate = 0 };
             var store = CreateDataStoreContext(new[] { existing });
 
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(update, "PUT");
 
             var response = await function.Run(request);
@@ -164,7 +165,7 @@ namespace TestRating
             var update = new RatingModel { PersonId = 9, UserId = "alex", Rate = 8 };
             var store = CreateDataStoreContext(new[] { existing });
 
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(update, "PUT");
 
             var response = await function.Run(request);
@@ -185,7 +186,7 @@ namespace TestRating
                 .Setup(x => x.CreateRatingAsync(It.IsAny<RatingModel>()))
                 .ThrowsAsync(new InvalidOperationException("boom"));
 
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(newRating, "PUT");
 
             var response = await function.Run(request);
@@ -227,7 +228,7 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenBodyIsNullWithErrorPayload()
         {
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(null, "PUT");
 
             var response = await function.Run(request);
@@ -243,7 +244,7 @@ namespace TestRating
         {
             var invalidRating = new RatingModel { PersonId = 0, UserId = "alex", Rate = 7 };
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
@@ -259,7 +260,7 @@ namespace TestRating
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "alex", Rate = 15 };
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
@@ -275,7 +276,7 @@ namespace TestRating
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "", Rate = 7 };
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
@@ -291,7 +292,7 @@ namespace TestRating
         {
             var invalidRating = new RatingModel { PersonId = 9, UserId = "   ", Rate = 7 };
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(invalidRating, "PUT");
 
             var response = await function.Run(request);
@@ -306,7 +307,7 @@ namespace TestRating
         public async Task UpsertRatingReturnsBadRequestWhenJsonIsMalformed()
         {
             var store = CreateDataStoreContext();
-            var function = new UpsertRating(store.StoreMock.Object, Mock.Of<ILogger<UpsertRating>>());
+            var function = CreateUpsertRating(store.StoreMock.Object);
             var request = CreateRequest(null, "PUT", "{");
 
             var response = await function.Run(request);
@@ -317,13 +318,41 @@ namespace TestRating
             Assert.AreEqual("Request body contains invalid JSON.", json.GetProperty("error").GetString());
         }
 
-        private static HttpRequestData CreateRequest(object body, string method = "GET", string rawBody = null)
+        [TestMethod]
+        public async Task UpsertRatingReturnsUnauthorizedWhenTokenValidationFails()
+        {
+            var store = CreateDataStoreContext();
+            var function = CreateUpsertRating(
+                store.StoreMock.Object,
+                TokenValidationOutcome.Unauthorized("A valid Bearer token is required."));
+            var request = CreateRequest(new RatingModel { PersonId = 9, UserId = "alex", Rate = 7 }, "PUT");
+
+            var response = await function.Run(request);
+            var bodyText = await ReadBodyTextAsync(response);
+            var json = JsonDocument.Parse(bodyText).RootElement;
+
+            Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.AreEqual("A valid Bearer token is required.", json.GetProperty("error").GetString());
+            store.StoreMock.Verify(x => x.FindRatingAsync(It.IsAny<int>(), It.IsAny<string>()), Times.Never);
+            store.StoreMock.Verify(x => x.CreateRatingAsync(It.IsAny<RatingModel>()), Times.Never);
+            store.StoreMock.Verify(x => x.UpdateRatingAsync(It.IsAny<RatingModel>()), Times.Never);
+            store.StoreMock.Verify(x => x.DeleteRatingAsync(It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+        }
+
+        private static HttpRequestData CreateRequest(object body, string method = "GET", string rawBody = null, string authorizationHeader = null)
         {
             var context = CreateFunctionContext();
             var response = CreateResponse(context);
             var requestMock = new Mock<HttpRequestData>(context);
+            var headers = new HttpHeadersCollection();
+
+            if (!string.IsNullOrWhiteSpace(authorizationHeader))
+            {
+                headers.Add("Authorization", authorizationHeader);
+            }
+
             requestMock.SetupGet(x => x.Body).Returns(CreateBodyStream(body, rawBody));
-            requestMock.SetupGet(x => x.Headers).Returns(new HttpHeadersCollection());
+            requestMock.SetupGet(x => x.Headers).Returns(headers);
             requestMock.SetupGet(x => x.Cookies).Returns(Array.Empty<IHttpCookie>());
             requestMock.SetupGet(x => x.Url).Returns(new Uri("https://localhost/api/rating"));
             requestMock.SetupGet(x => x.Identities).Returns(Array.Empty<ClaimsIdentity>());
@@ -342,6 +371,12 @@ namespace TestRating
             responseMock.SetupGet(x => x.Cookies).Returns(Mock.Of<HttpCookies>());
 
             return responseMock.Object;
+        }
+
+        private static UpsertRating CreateUpsertRating(IDataStore dataStore, TokenValidationOutcome outcome = null)
+        {
+            var tokenValidationOutcome = outcome ?? TokenValidationOutcome.Success(new ClaimsPrincipal(new ClaimsIdentity("Test")));
+            return new UpsertRating(dataStore, Mock.Of<ILogger<UpsertRating>>(), new StubAccessTokenValidator(tokenValidationOutcome));
         }
 
         private static FunctionContext CreateFunctionContext()
@@ -379,6 +414,21 @@ namespace TestRating
 
         private sealed record DataStoreContext(
             Mock<IDataStore> StoreMock);
+
+        private sealed class StubAccessTokenValidator : IAccessTokenValidator
+        {
+            private readonly TokenValidationOutcome _outcome;
+
+            public StubAccessTokenValidator(TokenValidationOutcome outcome)
+            {
+                _outcome = outcome;
+            }
+
+            public Task<TokenValidationOutcome> ValidateAsync(HttpRequestData request, CancellationToken cancellationToken = default)
+            {
+                return Task.FromResult(_outcome);
+            }
+        }
 
         private static DataStoreContext CreateDataStoreContext(IEnumerable<RatingModel> queryResults = null)
         {

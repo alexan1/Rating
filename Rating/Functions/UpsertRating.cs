@@ -6,28 +6,40 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 using Rating;
+using Rating.Auth;
 using Rating.Data;
 
 namespace Rating.Functions
 {
     public class UpsertRating
     {
+        private readonly IAccessTokenValidator _accessTokenValidator;
         private readonly IDataStore _dataStore;
         private readonly ILogger<UpsertRating> _logger;
 
         public UpsertRating(
             IDataStore dataStore,
-            ILogger<UpsertRating> logger)
+            ILogger<UpsertRating> logger,
+            IAccessTokenValidator accessTokenValidator)
         {
             _dataStore = dataStore;
             _logger = logger;
+            _accessTokenValidator = accessTokenValidator;
         }
 
         [Function(nameof(UpsertRating))]
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "put", Route = "rating")] HttpRequestData req)
         {
-            Model.Rating rating;
+            var tokenValidation = await _accessTokenValidator.ValidateAsync(req);
+            if (!tokenValidation.IsAuthenticated)
+            {
+                var unauthorizedResponse = req.CreateResponse(tokenValidation.StatusCode);
+                await unauthorizedResponse.WriteAsJsonAsync(new { error = tokenValidation.ErrorMessage });
+                return unauthorizedResponse;
+            }
+
+            Model.Rating rating = null;
 
             try
             {

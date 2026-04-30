@@ -4,12 +4,15 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
+using Rating.Auth;
 using Rating;
 using Rating.Data;
 
 var mongoConnectionString = Environment.GetEnvironmentVariable(Settings.MONGO_CONNECTION_STRING);
 var cosmosConnectionString = Environment.GetEnvironmentVariable(Settings.COSMOS_CONNECTION_STRING);
 var dataStoreType = Environment.GetEnvironmentVariable(Settings.DATA_STORE_TYPE);
+var b2cAuthority = Environment.GetEnvironmentVariable(Settings.B2C_AUTHORITY);
+var b2cAudience = Environment.GetEnvironmentVariable(Settings.B2C_AUDIENCE);
 
 var useCosmosDb = string.Equals(dataStoreType, Settings.COSMOS_DATA_STORE, StringComparison.OrdinalIgnoreCase);
 
@@ -37,6 +40,10 @@ var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
     .ConfigureServices(services =>
     {
+        services.AddSingleton<IAccessTokenValidator>(_ => new AccessTokenValidator(
+            b2cAuthority,
+            b2cAudience));
+
         if (useCosmosDb)
         {
             services.AddSingleton(_ => new CosmosClient(cosmosConnectionString));

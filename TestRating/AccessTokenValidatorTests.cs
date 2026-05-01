@@ -64,6 +64,28 @@ namespace TestRating
         }
 
         [TestMethod]
+        public async Task ValidateAsyncReturnsServerErrorWhenRefreshConfigurationLoadFails()
+        {
+            var initialConfiguration = CreateConfiguration();
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("FEDCBA9876543210FEDCBA9876543210"));
+            var token = CreateToken(initialConfiguration.Issuer, "rating-api", signingKey, new Claim("sub", "user-123"));
+            var validator = new AccessTokenValidator(
+                new B2CAuthenticationOptions
+                {
+                    Authority = initialConfiguration.Issuer.TrimEnd('/'),
+                    Audience = "rating-api"
+                },
+                new RefreshFailingConfigurationManager(initialConfiguration, new InvalidOperationException("network failure")));
+            var request = CreateRequest($"Bearer {token}");
+
+            var outcome = await validator.ValidateAsync(request);
+
+            Assert.IsFalse(outcome.IsAuthenticated);
+            Assert.AreEqual(HttpStatusCode.InternalServerError, outcome.StatusCode);
+            Assert.AreEqual("Unable to load authentication configuration.", outcome.ErrorMessage);
+        }
+
+        [TestMethod]
         public async Task ValidateAsyncReturnsPrincipalWhenTokenIsValid()
         {
             var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("0123456789ABCDEF0123456789ABCDEF"));
@@ -167,6 +189,34 @@ namespace TestRating
 
             public void RequestRefresh()
             {
+            }
+        }
+
+        private sealed class RefreshFailingConfigurationManager : IConfigurationManager<OpenIdConnectConfiguration>
+        {
+            private readonly OpenIdConnectConfiguration _configuration;
+            private readonly Exception _refreshException;
+            private bool _wasRefreshed;
+
+            public RefreshFailingConfigurationManager(OpenIdConnectConfiguration configuration, Exception refreshException)
+            {
+                _configuration = configuration;
+                _refreshException = refreshException;
+            }
+
+            public Task<OpenIdConnectConfiguration> GetConfigurationAsync(CancellationToken cancel)
+            {
+                if (_wasRefreshed)
+                {
+                    throw _refreshException;
+                }
+
+                return Task.FromResult(_configuration);
+            }
+
+            public void RequestRefresh()
+            {
+                _wasRefreshed = true;
             }
         }
     }

@@ -34,9 +34,9 @@ namespace Rating.Functions
             var tokenValidation = await _accessTokenValidator.ValidateAsync(req);
             if (!tokenValidation.IsAuthenticated)
             {
-                var unauthorizedResponse = req.CreateResponse(tokenValidation.StatusCode);
-                await unauthorizedResponse.WriteAsJsonAsync(new { error = tokenValidation.ErrorMessage });
-                return unauthorizedResponse;
+                var authFailureResponse = req.CreateResponse(tokenValidation.StatusCode);
+                await authFailureResponse.WriteAsJsonAsync(new { error = tokenValidation.ErrorMessage });
+                return authFailureResponse;
             }
 
             Model.Rating rating = null;

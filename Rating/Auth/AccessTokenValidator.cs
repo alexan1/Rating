@@ -70,6 +70,14 @@ namespace Rating.Auth
                 try
                 {
                     configuration = await _configurationManager.GetConfigurationAsync(cancellationToken);
+                }
+                catch (Exception)
+                {
+                    return TokenValidationOutcome.ServerError("Unable to load authentication configuration.");
+                }
+
+                try
+                {
                     return TokenValidationOutcome.Success(ValidateToken(accessToken, configuration));
                 }
                 catch (SecurityTokenException)

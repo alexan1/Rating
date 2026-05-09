@@ -28,6 +28,16 @@ namespace Rating.Functions
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "rating/{id}")] HttpRequestData req,
             int id)
         {
+            // Handle CORS preflight requests
+            if (req.Method == "OPTIONS")
+            {
+                var corsResponse = req.CreateResponse(System.Net.HttpStatusCode.OK);
+                corsResponse.Headers.Add("Access-Control-Allow-Origin", "*");
+                corsResponse.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
+                corsResponse.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                return corsResponse;
+            }
+            
             try
             {
                 // Validate PersonId
@@ -41,6 +51,7 @@ namespace Rating.Functions
 
                 var result = await _dataStore.FindRatingsByPersonIdAsync(id);
                 var response = req.CreateResponse(HttpStatusCode.OK);
+                response.Headers.Add("Access-Control-Allow-Origin", "*");
                 await response.WriteAsJsonAsync(RatingSummaries.CreateForPerson(id, result));
                 return response;
             }

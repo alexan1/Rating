@@ -27,10 +27,21 @@ namespace Rating.Functions
         public async Task<HttpResponseData> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "ratings")] HttpRequestData req)
         {
+            // Handle CORS preflight requests
+            if (req.Method == "OPTIONS")
+            {
+                var corsResponse = req.CreateResponse(System.Net.HttpStatusCode.OK);
+                corsResponse.Headers.Add("Access-Control-Allow-Origin", "*");
+                corsResponse.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
+                corsResponse.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization");
+                return corsResponse;
+            }
+            
             try
             {
                 var result = await _dataStore.GetAllRatingsAsync();
                 var response = req.CreateResponse(HttpStatusCode.OK);
+                response.Headers.Add("Access-Control-Allow-Origin", "*");
                 await response.WriteAsJsonAsync(RatingSummaries.CreateAll(result));
                 return response;
             }
